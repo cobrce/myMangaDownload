@@ -39,8 +39,13 @@ namespace pixtract
         internal static string DownLoadPage(string src)
         {
             //string content = new StreamReader(new GZipStream(client.OpenRead(src), CompressionMode.Decompress)).ReadToEnd();
-            string content = new StreamReader(client.OpenRead(src)).ReadToEnd();
-            return content;
+            for (int i = 0; i < 100; i++)
+            {
+                string content = new StreamReader(client.OpenRead(src)).ReadToEnd();
+                if (!string.IsNullOrEmpty(content))
+                    return content;
+            }
+            return null;
         }
         internal static bool Extract(HtmlDocument htmlDocument, string src,string file, out string hRef)
         {
@@ -68,11 +73,19 @@ namespace pixtract
 
         private static bool DownloadImage(string src,string file)
         {
-
             try
             {
-                File.WriteAllBytes(file, client.DownloadData(src));
-                return true;
+                byte[] data;
+                for (int i = 0; i < 100; i++)
+                {
+                     data= client.DownloadData(src);
+                    if (data != null)
+                    {
+                        File.WriteAllBytes(file,data);
+                        return true;
+                    }
+                }
+                return false;
             }
             catch { }
             return false;
@@ -83,10 +96,14 @@ namespace pixtract
             try
             {
                 string data = DownLoadPage(src);
-                HtmlDocument doc = GetDocument(data);
-                return  Extract(doc, src,file, out hRef);
+                if (!String.IsNullOrEmpty(data))
+                {
+                    HtmlDocument doc = GetDocument(data);
+                    return Extract(doc, src, file, out hRef);
+                }
             }
-            catch { hRef = ""; return false; }
+            catch { }
+            hRef = ""; return false; 
         }
 
         private static HtmlDocument GetDocument(string data)

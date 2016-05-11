@@ -16,8 +16,9 @@ namespace myMangaDownload
 {    
     public partial class Form1 : Form
     {
-        Thread _thread;
-        Thread thread
+        private Thread _thread;
+
+        private Thread thread
         {
             set
             {
@@ -35,9 +36,10 @@ namespace myMangaDownload
             public string Chapter;
             public string Page;
         }
-        string LocalDir { get { return Path.GetDirectoryName(typeof(Form1).Assembly.Location); } }
 
-        static string regexp = @"(https?:\/\/)?(www\.)?mymanga.me\/(?<categ>[\w]*)\/(?<manga>[\w]*)\/((?<chapter>[\w]{1,}))($|\/(?<page>[\d]*))";
+        private static string LocalDir { get { return Path.GetDirectoryName(typeof(Form1).Assembly.Location); } }
+
+        private const string Regexp = @"(https?:\/\/)?(www\.)?mymanga.me\/(?<categ>[\w]*)\/(?<manga>[\w]*)\/((?<chapter>[\w]{1,}))($|\/(?<page>[\d]*))";
         // explaining : (https?:\/\/)+(www.)?mymanga.me\/(?<categ>[\w]*)\/(?<manga>[\w]*)\/(?<chapter>[\d]*)($|\/(?<page>[\d]*))
         // (https?:\/\/) : - the string must start with http(s):// 
         //                 - the ? means that the last group/char is optional, in this case it's th char 's'
@@ -53,11 +55,11 @@ namespace myMangaDownload
         //
         // P.S : the groups can be found in Match.Groups["groupName"], so they are used to extract data
 
-        Regex regex = new Regex(regexp);
+        private Regex regex = new Regex(Regexp);
         private string url;
 
-        UrlData FirstUrl = new UrlData();
-        UrlData LastUrl =new UrlData();
+        private UrlData FirstUrl = new UrlData();
+        private UrlData LastUrl =new UrlData();
         private bool hasStopURL;
 
         public Form1()
@@ -112,21 +114,31 @@ namespace myMangaDownload
             string localURL = url;
             string hRef = "";
             string directory = Path.Combine(LocalDir, textBox2.Text);
+            string ChapterDirectory = directory;
+            bool CreateSubDirs = checkBox1.Checked;
             if (!Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
             while (true)
             {
                 Match(localURL,ref FirstUrl);
+
                 if (FirstUrl.Page == "")
-                {
                     InitTo1();
+
+                if (CreateSubDirs)
+                {
+                    ChapterDirectory = Path.Combine(directory, FirstUrl.Chapter);
+                    if (!Directory.Exists(ChapterDirectory))
+                        Directory.CreateDirectory((ChapterDirectory));
                 }
+
                 label4.Text = string.Format("::Current::\nChapter : {0} / Page : {1}", FirstUrl.Chapter, FirstUrl.Page);
                 string fileName = string.Format("{0:D4} - {1:D2}.png", int.Parse(FirstUrl.Chapter), int.Parse(FirstUrl.Page));
-                string file = Path.Combine(directory, fileName);
-                if (!Pxtractor.DownloadLargestImage(localURL, file, out hRef))
-                    break;               
+                string file = Path.Combine(ChapterDirectory, fileName);
 
+                Pxtractor.DownloadLargestImage(localURL, file, out hRef);
+                if (string.IsNullOrEmpty(hRef))
+                    break;
                 if (hasStopURL && FirstUrl.Equals(LastUrl))
                     break;
                 localURL = hRef;
@@ -138,14 +150,12 @@ namespace myMangaDownload
         private bool Match(string url,ref UrlData urlData)
         {
             Match match = regex.Match(url);
-            if (match.Success)
-            {
-                urlData.Category = match.Groups["categ"].Value;
-                urlData.Manga= match.Groups["manga"].Value;
-                urlData.Chapter = match.Groups["chapter"].Value;
-                urlData.Page = match.Groups["page"].Value;
-            }
-            return match.Success;
+            if (!match.Success) return false;
+            urlData.Category = match.Groups["categ"].Value;
+            urlData.Manga= match.Groups["manga"].Value;
+            urlData.Chapter = match.Groups["chapter"].Value;
+            urlData.Page = match.Groups["page"].Value;
+            return true;
         }
 
         private void button2_Click(object sender, EventArgs e)
